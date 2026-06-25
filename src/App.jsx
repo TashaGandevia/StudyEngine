@@ -5,7 +5,9 @@
 // the real flow state machine (TITLE → ONBOARDING → OVERWORLD → ...) and the
 // M1 context providers.
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Button, Card, Pill, ProgressBar } from './components';
+import { slideUp, pulse } from './lib/motion';
 
 // Zone identity colors from the GDD, used only to demo the zone ramps here.
 const ZONES = [
@@ -82,6 +84,18 @@ export default function App() {
             ))}
           </div>
         </Card>
+
+        {/* Motion presets (INF-3). The slideUp preset animates this card in;
+            the pulse button demos feedback motion. Both are automatically
+            toned down when the user prefers reduced motion. */}
+        <motion.div {...slideUp}>
+          <Card>
+            <h2 className="mb-3 text-lg font-semibold">Motion</h2>
+            <motion.div className="inline-block" {...pulse}>
+              <Pill tone="accent">Pulsing feedback</Pill>
+            </motion.div>
+          </Card>
+        </motion.div>
 
         {/* Mono font sample (Code Lab) */}
         <Card>
