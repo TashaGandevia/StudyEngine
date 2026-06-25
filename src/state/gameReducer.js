@@ -23,6 +23,7 @@ import {
   initialFlowState,
 } from './flowMachine.js';
 import { xpForAnswer } from '../lib/leveling.js';
+import { comboMultiplier } from '../lib/combo.js';
 
 // Gameplay action types (distinct from the flow EVENT names).
 export const GAME_ACTION = {
@@ -114,9 +115,13 @@ export function gameReducer(state, action) {
       const combo = correct ? run.combo + 1 : 0; // TODO(SYS-4): multiplier/caps
       const lives =
         !correct && run.isBoss ? Math.max(0, run.lives - 1) : run.lives; // TODO(SYS-5)
-      // Base XP × difficulty (SYS-3). TODO(SYS-4): multiply by the combo
-      // multiplier (a function of `combo`) once that lands.
-      const xpGain = xpForAnswer({ correct, difficulty: action.difficulty });
+      // Base XP × difficulty (SYS-3) × combo multiplier (SYS-4). The multiplier
+      // uses the post-increment combo, so a longer streak rewards more; a wrong
+      // answer earns 0 regardless (xpForAnswer returns 0).
+      const xpGain = Math.round(
+        xpForAnswer({ correct, difficulty: action.difficulty }) *
+          comboMultiplier(combo)
+      );
 
       const nextRun = {
         ...run,
