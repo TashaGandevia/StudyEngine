@@ -7,4 +7,5 @@ export { default as ProgressBar } from './ProgressBar.jsx';
 export { default as MotionProvider } from './MotionProvider.jsx';
 export { default as LevelUpBanner } from './LevelUpBanner.jsx';
 export { default as ComboMeter } from './ComboMeter.jsx';
+export { default as BadgeShelf } from './BadgeShelf.jsx';
 export { useReducedMotionPref } from '../lib/reducedMotionContext.js';

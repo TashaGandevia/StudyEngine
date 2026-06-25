@@ -25,6 +25,7 @@ import {
 import { xpForAnswer } from '../lib/leveling.js';
 import { comboMultiplier } from '../lib/combo.js';
 import { accuracy as computeAccuracy, starsForAccuracy } from '../lib/scoring.js';
+import { evaluateBadges } from '../data/badges.js';
 
 // Gameplay action types (distinct from the flow EVENT names).
 export const GAME_ACTION = {
@@ -175,12 +176,20 @@ export function gameReducer(state, action) {
         zones[nextId] = { ...zones[nextId], unlocked: true };
       }
 
+      // Badges (SYS-7): award any whose predicate passes for this run and that
+      // the player doesn't already hold.
+      const newlyUnlocked = evaluateBadges(run).filter(
+        (id) => !state.badges.includes(id)
+      );
+
       return {
         ...state,
         zones,
         player: { ...state.player, xp: state.player.xp + run.xpThisRun },
+        badges: newlyUnlocked.length
+          ? [...state.badges, ...newlyUnlocked]
+          : state.badges,
         run: null,
-        // TODO(SYS-7): evaluate badge predicates against the finished run here.
       };
     }
 
