@@ -11,6 +11,7 @@ import { AnimatePresence } from 'framer-motion';
 import GameProvider from './state/GameProvider.jsx';
 import { useFlow } from './state/flowContext.js';
 import { FLOW, OVERLAY } from './state/flowMachine.js';
+import { LevelUpBanner } from './components';
 
 import TitleScreen from './screens/TitleScreen.jsx';
 import Onboarding from './screens/Onboarding.jsx';
@@ -61,6 +62,9 @@ function FlowRouter() {
       <AnimatePresence>
         {ActiveOverlay && <ActiveOverlay key={overlay} />}
       </AnimatePresence>
+
+      {/* Global level-up banner (SYS-3): floats above everything, self-dismisses. */}
+      <LevelUpBanner />
     </>
   );
 }
