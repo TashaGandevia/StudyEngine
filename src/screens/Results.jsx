@@ -20,7 +20,10 @@ export default function Results() {
     >
       <div className="w-full text-center">
         {/* Filled vs empty stars out of 3. */}
-        <div className="text-2xl text-zone4-500" aria-label={`${stars} of 3 stars`}>
+        <div
+          className="text-2xl text-zone4-500"
+          aria-label={`${stars} of 3 stars`}
+        >
           {'★'.repeat(stars)}
           <span className="text-text-muted">{'☆'.repeat(3 - stars)}</span>
         </div>

@@ -11,10 +11,8 @@
 // appended last so callers can fine-tune per use.
 
 const VARIANTS = {
-  primary:
-    'bg-accent text-accent-contrast hover:opacity-90 active:opacity-80',
-  secondary:
-    'bg-surface text-text border border-border hover:bg-surface-muted',
+  primary: 'bg-accent text-accent-contrast hover:opacity-90 active:opacity-80',
+  secondary: 'bg-surface text-text border border-border hover:bg-surface-muted',
   ghost: 'bg-transparent text-text hover:bg-surface-muted',
 };
 

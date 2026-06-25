@@ -1,36 +1,38 @@
-// GameProvider (SYS-1) — owns the global game state and exposes the action API.
+// GameProvider — owns the global game state and exposes the action API.
 //
-// Runs gameReducer via useReducer and publishes, through context, the current
-// state plus named action helpers. It does NOT expose raw dispatch: mini-games
-// receive only the gameplay helpers (answer/completeRun) as their
+// Runs the game reducer via useReducer and publishes, through context, the
+// current state plus named action helpers. It does NOT expose raw dispatch:
+// mini-games receive only the gameplay helpers (answer/completeRun) as their
 // onAnswer/onComplete callbacks, so the reducer stays the sole mutator — a
 // one-directional data flow (and itself a teachable React pattern).
+//
+// The subject content is INJECTED via the `content` prop (a content pack — see
+// data/contentPack.js). The reducer is built from it and the pack is published
+// on ContentContext for descendants. The engine never imports subject data, so
+// swapping content retargets the whole game.
 import { useEffect, useMemo, useReducer } from 'react';
 import { EVENT } from './flowMachine.js';
 import {
   GAME_ACTION,
-  gameReducer,
+  createGameReducer,
   createInitialState,
 } from './gameReducer.js';
 import { GameContext } from './gameContext.js';
-import {
-  loadDurable,
-  save,
-  clear,
-  downloadSave,
-} from '../lib/persistence.js';
+import { ContentContext } from './contentContext.js';
+import { loadDurable, save, clear, downloadSave } from '../lib/persistence.js';
 
-// Lazy initializer: start from a fresh state, then overlay any saved durable
-// progress. Per-zone merge keeps existing saves valid if new zones are added
-// later. Transient fields (flow/overlay/run) always come from the fresh state.
-function initState() {
-  const fresh = createInitialState();
+// Lazy initializer: start from a fresh state for this content pack, then
+// overlay any saved durable progress. Per-zone merge keeps existing saves valid
+// if zones change. Transient fields (flow/overlay/run) always come from fresh.
+function initState(content) {
+  const fresh = createInitialState(content);
   const saved = loadDurable();
   if (!saved) return fresh;
 
   const zones = { ...fresh.zones };
   for (const id of Object.keys(fresh.zones)) {
-    if (saved.zones?.[id]) zones[id] = { ...fresh.zones[id], ...saved.zones[id] };
+    if (saved.zones?.[id])
+      zones[id] = { ...fresh.zones[id], ...saved.zones[id] };
   }
 
   return {
@@ -45,9 +47,11 @@ function initState() {
   };
 }
 
-export default function GameProvider({ children }) {
-  // Third arg = lazy initializer; runs once to rehydrate from localStorage.
-  const [state, dispatch] = useReducer(gameReducer, undefined, initState);
+export default function GameProvider({ content, children }) {
+  // Reducer is bound to the injected content pack (zone order, badge defs).
+  const reducer = useMemo(() => createGameReducer(content), [content]);
+  // Third arg = lazy initializer (receives `content`); rehydrates from storage.
+  const [state, dispatch] = useReducer(reducer, content, initState);
 
   // Persist whenever durable progress changes. Depending on the specific
   // slices avoids re-saving on transient flow/overlay/run churn.
@@ -102,7 +106,8 @@ export default function GameProvider({ children }) {
       // onComplete callback.
       completeRun: () => fire(GAME_ACTION.COMPLETE_RUN),
       abandonRun: () => fire(GAME_ACTION.ABANDON_RUN),
-      setSetting: (key, val) => fire(GAME_ACTION.SET_SETTING, { key, value: val }),
+      setSetting: (key, val) =>
+        fire(GAME_ACTION.SET_SETTING, { key, value: val }),
 
       // --- Persistence controls (SYS-2) ---
       // Wipe the save AND reset in-memory state to a brand-new game.
@@ -115,5 +120,9 @@ export default function GameProvider({ children }) {
     };
   }, [state]);
 
-  return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
+  return (
+    <ContentContext.Provider value={content}>
+      <GameContext.Provider value={value}>{children}</GameContext.Provider>
+    </ContentContext.Provider>
+  );
 }

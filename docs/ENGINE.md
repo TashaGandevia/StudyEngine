@@ -2,7 +2,7 @@
 
 A content-agnostic, client-side engine for building **gamified study games**. It
 provides the entire learning loop — progression, scoring, retention, motivation,
-and persistence — while staying completely independent of *what* is being taught.
+and persistence — while staying completely independent of _what_ is being taught.
 Drop in your own questions and interactions and you have a complete study game
 for any subject.
 
@@ -18,32 +18,32 @@ A single source of truth (a reducer) tracks a full playthrough:
 
 ```js
 state = {
-  flow,        // which screen is showing (navigation state machine)
-  overlay,     // pause / profile overlay, or none
-  zoneId,      // the active topic/unit
-  player,      // lifetime XP (level is derived)
-  zones,       // per-topic progress: unlocked, completed, bestAccuracy, stars
-  run,         // the active round: queue, index, lives, combo, correct, total, xp
-  badges,      // earned achievement ids
+  flow, // which screen is showing (navigation state machine)
+  overlay, // pause / profile overlay, or none
+  zoneId, // the active topic/unit
+  player, // lifetime XP (level is derived)
+  zones, // per-topic progress: unlocked, completed, bestAccuracy, stars
+  run, // the active round: queue, index, lives, combo, correct, total, xp
+  badges, // earned achievement ids
   reviewQueue, // missed items awaiting re-practice
-  settings,    // sound, reduced motion, ...
-}
+  settings, // sound, reduced motion, ...
+};
 ```
 
 Built on top of it:
 
-| System | What it does |
-|---|---|
-| **Flow machine** | Declarative state table driving navigation: `TITLE → ONBOARDING → OVERWORLD → TOPIC_INTRO → PLAYING → BOSS → RESULTS` (+ `CAPSTONE → END`), with pause/profile overlays that suspend and resume. |
-| **XP & leveling** | XP per correct answer = base × difficulty multiplier × combo multiplier; level curve `100·n^1.5`; level-up banner. |
-| **Combo / streak** | Consecutive correct answers raise a multiplier (caps at ×2); a wrong answer resets it. Visual combo meter with an "on fire" flourish. |
-| **Lives** | Practice rounds are forgiving (no lives); "boss" checkpoints use 3 lives, and failing retries the boss, not the whole topic. |
-| **Scoring, accuracy & stars** | Round score = accumulated XP; accuracy = correct/total; 0–3 stars by accuracy thresholds (70/85/95%). Replays only improve a topic's record. |
-| **Badges** | Data-driven achievements with `test(run)` predicates, evaluated on round completion. |
-| **Review queue (spaced repetition)** | A missed item must be answered correctly twice (not necessarily consecutively) before it clears. Feeds back into future rounds. |
-| **Run builder** | `buildRun()` assembles each round from a topic's question bank, biased toward review items and ordered along a difficulty curve. Seeded RNG for reproducible ("daily") runs. |
-| **Persistence** | Versioned `localStorage` save/restore with export and reset; degrades to in-memory when storage is unavailable. |
-| **Theming & motion** | Themeable color tokens (light/dark), shared UI primitives, and animation presets with a reduced-motion guard. |
+| System                               | What it does                                                                                                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Flow machine**                     | Declarative state table driving navigation: `TITLE → ONBOARDING → OVERWORLD → TOPIC_INTRO → PLAYING → BOSS → RESULTS` (+ `CAPSTONE → END`), with pause/profile overlays that suspend and resume. |
+| **XP & leveling**                    | XP per correct answer = base × difficulty multiplier × combo multiplier; level curve `100·n^1.5`; level-up banner.                                                                               |
+| **Combo / streak**                   | Consecutive correct answers raise a multiplier (caps at ×2); a wrong answer resets it. Visual combo meter with an "on fire" flourish.                                                            |
+| **Lives**                            | Practice rounds are forgiving (no lives); "boss" checkpoints use 3 lives, and failing retries the boss, not the whole topic.                                                                     |
+| **Scoring, accuracy & stars**        | Round score = accumulated XP; accuracy = correct/total; 0–3 stars by accuracy thresholds (70/85/95%). Replays only improve a topic's record.                                                     |
+| **Badges**                           | Data-driven achievements with `test(run)` predicates, evaluated on round completion.                                                                                                             |
+| **Review queue (spaced repetition)** | A missed item must be answered correctly twice (not necessarily consecutively) before it clears. Feeds back into future rounds.                                                                  |
+| **Run builder**                      | `buildRun()` assembles each round from a topic's question bank, biased toward review items and ordered along a difficulty curve. Seeded RNG for reproducible ("daily") runs.                     |
+| **Persistence**                      | Versioned `localStorage` save/restore with export and reset; degrades to in-memory when storage is unavailable.                                                                                  |
+| **Theming & motion**                 | Themeable color tokens (light/dark), shared UI primitives, and animation presets with a reduced-motion guard.                                                                                    |
 
 ---
 
@@ -51,28 +51,56 @@ Built on top of it:
 
 ```
 src/
+├─ appConfig.js           // app name + storage identity (subject-neutral)
+├─ App.jsx                // composition root: injects a content pack
 ├─ state/
-│  ├─ gameReducer.js      // the single source of truth; all transitions
-│  ├─ GameProvider.jsx    // context provider; exposes state + action helpers
+│  ├─ gameReducer.js      // createGameReducer(content) — the transitions
+│  ├─ GameProvider.jsx    // takes a content pack; exposes state + actions
 │  ├─ gameContext.js      // useGame() hook
+│  ├─ contentContext.js   // useContent() hook (the injected pack)
 │  ├─ flowMachine.js      // navigation state machine (pure)
 │  └─ selectors.js        // derived values (level progress, accuracy, ...)
-├─ lib/                   // pure, framework-free game logic (easy to test)
+├─ lib/                   // pure, framework-free ENGINE logic (no subject data)
 │  ├─ leveling.js         // xpForAnswer, level curve
 │  ├─ combo.js            // combo multiplier
 │  ├─ scoring.js          // accuracy, stars
 │  ├─ reviewQueue.js      // spaced-repetition rule
-│  ├─ buildRun.js         // round assembly
+│  ├─ badges.js           // evaluateBadges(defs, run) — runs predicates
+│  ├─ buildRun.js         // round assembly (pure; arrays in, queue out)
 │  ├─ rng.js              // seeded RNG + shuffle
 │  └─ persistence.js      // save / load / export / reset
 ├─ data/                  // CONTENT — the part you change per subject
+│  ├─ contentPack.js      // bundles the pack injected into the engine
 │  ├─ zones.js            // topic/unit metadata + order
-│  ├─ badges.js           // achievement definitions
+│  ├─ badges.js           // achievement definitions (data)
 │  └─ challenges/         // one question bank per topic, sharing a schema
-├─ minigames/             // interaction components + a type→component router
+├─ minigames/             // interaction components + registry (type→component)
 ├─ components/            // reusable UI primitives + HUD widgets
 └─ screens/               // the screens for each flow state
 ```
+
+### The content pack (engine ↔ subject boundary)
+
+The engine (`state/`, `lib/`) imports **nothing** from `data/`. Instead, a
+single **content pack** is injected into `<GameProvider content={...}>` at the
+app root, and published via `useContent()` for components. That one object is
+all the engine needs to teach a subject:
+
+```js
+{
+  zones,            // [{ id, name, theme, accent, order }]  (metadata)
+  zoneIds,          // ['z1','z2',...]  ordered ids the engine seeds/unlocks
+  badges,           // [{ id, name, desc, test(run) }]  achievement defs
+  challengesForZone,// (zoneId) => Challenge[]
+  getChallenge,     // (id) => Challenge | null
+  allChallenges,    // Challenge[]
+  resolveMiniGame,  // (type) => Component
+}
+```
+
+To retarget the engine, provide a different object with this shape (see
+`data/contentPack.js` for the bundled example) — no changes to `state/` or
+`lib/`.
 
 ### One-directional data flow
 
@@ -83,8 +111,12 @@ unlocks, the review queue):
 ```jsx
 <MiniGame
   challenge={challengeObject}
-  onAnswer={(isCorrect, meta) => { /* engine updates combo/XP/review */ }}
-  onComplete={() => { /* round finished */ }}
+  onAnswer={(isCorrect, meta) => {
+    /* engine updates combo/XP/review */
+  }}
+  onComplete={() => {
+    /* round finished */
+  }}
 />
 ```
 
@@ -122,26 +154,28 @@ back to a simple component, so the game stays playable as you add interactions.
 Because the engine is content-agnostic, adapting it to a new course or subject
 means editing **data and interactions**, never the core logic:
 
-| To change | Edit | Leave untouched |
-|---|---|---|
-| Topics / units | `data/zones.js` (names, order, colors) | `state/`, `lib/` |
-| Questions | `data/challenges/*` (objects matching the schema) | reducer, `buildRun`, scoring |
-| Interaction styles | add a component + register its `type` | the router resolves it |
-| Achievements | `data/badges.js` `test(run)` predicates | unlock logic |
-| Feel / balance | knobs in `lib/` (see below) | everything else |
+| To change          | Edit                                              | Leave untouched              |
+| ------------------ | ------------------------------------------------- | ---------------------------- |
+| Topics / units     | `data/zones.js` (names, order, colors)            | `state/`, `lib/`             |
+| Questions          | `data/challenges/*` (objects matching the schema) | reducer, `buildRun`, scoring |
+| Interaction styles | add a component + register its `type`             | the router resolves it       |
+| Achievements       | `data/badges.js` `test(run)` predicates           | unlock logic                 |
+| Wire it together   | `data/contentPack.js` (the injected pack)         | `<GameProvider>`             |
+| App name / storage | `appConfig.js`                                    | everything else              |
+| Feel / balance     | knobs in `lib/` (see below)                       | everything else              |
 
 The reusable kernel is essentially:
 `reducer + selectors + lib/{leveling, combo, scoring, reviewQueue, buildRun, rng} + persistence`.
 
 ### Tuning knobs (no content changes needed)
 
-| Constant | Location | Effect |
-|---|---|---|
-| `BASE_XP`, `DIFFICULTY_MULT` | `lib/leveling.js` | XP per answer |
-| level curve `100·n^1.5` | `lib/leveling.js` | how fast levels come |
-| `COMBO_CAP` (×2 at 5) | `lib/combo.js` | streak reward ceiling |
-| `STAR_THRESHOLDS` (0.70/0.85/0.95) | `lib/scoring.js` | star difficulty |
-| `REQUIRED_CORRECT` (2) | `lib/reviewQueue.js` | how hard to clear a missed item |
+| Constant                                 | Location             | Effect                               |
+| ---------------------------------------- | -------------------- | ------------------------------------ |
+| `BASE_XP`, `DIFFICULTY_MULT`             | `lib/leveling.js`    | XP per answer                        |
+| level curve `100·n^1.5`                  | `lib/leveling.js`    | how fast levels come                 |
+| `COMBO_CAP` (×2 at 5)                    | `lib/combo.js`       | streak reward ceiling                |
+| `STAR_THRESHOLDS` (0.70/0.85/0.95)       | `lib/scoring.js`     | star difficulty                      |
+| `REQUIRED_CORRECT` (2)                   | `lib/reviewQueue.js` | how hard to clear a missed item      |
 | `count`, `difficultyCurve`, `reviewBias` | `buildRun()` options | round length, ramp, review weighting |
 
 ### Example subjects it suits as-is
@@ -160,7 +194,7 @@ The reusable kernel is essentially:
 
 1. **Progression is the lesson structure.** Topics unlock in order, so advancing
    through the game mirrors advancing through the curriculum.
-2. **Every concept gets a matching interaction.** Mechanics that *mimic* the idea
+2. **Every concept gets a matching interaction.** Mechanics that _mimic_ the idea
    beat walls of multiple choice.
 3. **Fast feedback, visible progress.** Immediate correct/incorrect response, an
    XP bar, a combo meter, badges.

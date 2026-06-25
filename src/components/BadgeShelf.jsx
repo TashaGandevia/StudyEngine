@@ -1,18 +1,19 @@
 // BadgeShelf (SYS-7) — lists the starter badge set, marking which are earned.
 //
-// Data-driven: it renders straight from the BADGES definitions and the player's
-// owned ids, so adding a badge in data/badges.js shows up here automatically.
-// UI-8 builds the full profile/badge UI; this is the testable baseline.
+// Data-driven: it renders straight from the content pack's badge definitions
+// and the player's owned ids, so adding a badge to the pack shows up here
+// automatically. UI-8 builds the full profile/badge UI; this is the baseline.
 import { useGame } from '../state/gameContext.js';
-import { BADGES } from '../data/badges.js';
+import { useContent } from '../state/contentContext.js';
 
 export default function BadgeShelf() {
   const { badges } = useGame();
+  const { badges: badgeDefs } = useContent();
   const owned = new Set(badges);
 
   return (
     <ul className="flex flex-col gap-2">
-      {BADGES.map((badge) => {
+      {badgeDefs.map((badge) => {
         const has = owned.has(badge.id);
         return (
           <li

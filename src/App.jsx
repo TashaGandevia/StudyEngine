@@ -12,6 +12,7 @@ import GameProvider from './state/GameProvider.jsx';
 import { useFlow } from './state/flowContext.js';
 import { FLOW, OVERLAY } from './state/flowMachine.js';
 import { LevelUpBanner } from './components';
+import { exampleContent } from './data/contentPack.js';
 
 import TitleScreen from './screens/TitleScreen.jsx';
 import Onboarding from './screens/Onboarding.jsx';
@@ -70,8 +71,10 @@ function FlowRouter() {
 }
 
 export default function App() {
+  // The composition root binds a content pack to the engine. Swap exampleContent
+  // for a different pack (same shape) to retarget the game to another subject.
   return (
-    <GameProvider>
+    <GameProvider content={exampleContent}>
       <FlowRouter />
     </GameProvider>
   );

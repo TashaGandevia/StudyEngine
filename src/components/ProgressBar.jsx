@@ -13,8 +13,7 @@ export default function ProgressBar({
   ...props
 }) {
   // Guard against divide-by-zero / out-of-range values, then clamp to [0, 100].
-  const pct =
-    max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+  const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
 
   return (
     <div

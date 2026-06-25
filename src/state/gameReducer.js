@@ -17,17 +17,15 @@
 //   - badge awards ............ SYS-7
 //   - review-queue spacing .... SYS-8
 //   - persistence ............. SYS-2
-import {
-  EVENT,
-  flowReducer,
-  initialFlowState,
-} from './flowMachine.js';
+import { EVENT, flowReducer, initialFlowState } from './flowMachine.js';
 import { xpForAnswer } from '../lib/leveling.js';
 import { comboMultiplier } from '../lib/combo.js';
-import { accuracy as computeAccuracy, starsForAccuracy } from '../lib/scoring.js';
-import { evaluateBadges } from '../data/badges.js';
+import {
+  accuracy as computeAccuracy,
+  starsForAccuracy,
+} from '../lib/scoring.js';
+import { evaluateBadges } from '../lib/badges.js';
 import { applyAnswerToQueue } from '../lib/reviewQueue.js';
-import { ZONE_IDS } from '../data/zones.js';
 
 // Gameplay action types (distinct from the flow EVENT names).
 export const GAME_ACTION = {
@@ -42,13 +40,11 @@ export const GAME_ACTION = {
 // The set of action types the flow machine handles; everything else is gameplay.
 const FLOW_EVENTS = new Set(Object.values(EVENT));
 
-// Zone ids + unlock order come from the content data model (SYS-9).
-
-function makeInitialZones() {
+function makeInitialZones(zoneIds) {
   const zones = {};
-  ZONE_IDS.forEach((id, i) => {
+  zoneIds.forEach((id, i) => {
     zones[id] = {
-      unlocked: i === 0, // only Zone 1 starts unlocked
+      unlocked: i === 0, // only the first zone starts unlocked
       completed: false,
       bestAccuracy: 0,
       stars: 0,
@@ -57,16 +53,17 @@ function makeInitialZones() {
   return zones;
 }
 
-// Factory (not a shared constant) so each call — initial mount and RESET —
-// produces fresh, independent objects with no aliasing between games.
-export function createInitialState() {
+// Build a fresh game state from a content pack. A factory (not a shared
+// constant) so each call — initial mount and RESET — produces fresh,
+// independent objects with no aliasing between games.
+export function createInitialState(content) {
   return {
     ...initialFlowState, // flow, overlay, zoneId
     // player.xp is the source of truth; level/xpIntoLevel are DERIVED via
     // selectors (SYS-3 owns the leveling experience). Keeping one stored value
     // avoids the two drifting out of sync.
     player: { xp: 0 },
-    zones: makeInitialZones(),
+    zones: makeInitialZones(content.zoneIds),
     run: null, // the active mini-game session, null when not playing
     badges: [],
     reviewQueue: [],
@@ -74,143 +71,148 @@ export function createInitialState() {
   };
 }
 
-export const initialGameState = createInitialState();
+// Build a reducer bound to a content pack. The engine core stays content-free;
+// the zone ordering and badge definitions are injected, so swapping the content
+// pack retargets the whole game with no changes here.
+export function createGameReducer(content) {
+  const { zoneIds, badges } = content;
 
-export function gameReducer(state, action) {
-  // --- Flow/overlay events delegate to the INF-4 flow machine. ---
-  if (FLOW_EVENTS.has(action.type)) {
-    const flowSlice = flowReducer(
-      { flow: state.flow, overlay: state.overlay, zoneId: state.zoneId },
-      action
-    );
-    return { ...state, ...flowSlice };
-  }
-
-  // --- Gameplay actions. ---
-  switch (action.type) {
-    case GAME_ACTION.START_RUN: {
-      // action: { zoneId, isBoss?, queue? }
-      return {
-        ...state,
-        run: {
-          zoneId: action.zoneId,
-          isBoss: Boolean(action.isBoss),
-          queue: action.queue ?? [],
-          index: 0,
-          // Boss runs have 3 lives; normal rounds are forgiving (null = none).
-          // SYS-5 hardens the lives rules.
-          lives: action.isBoss ? 3 : null,
-          combo: 0,
-          correct: 0,
-          total: 0,
-          xpThisRun: 0,
-        },
-      };
-    }
-
-    case GAME_ACTION.ANSWER: {
-      // action: { correct, challengeId?, difficulty? } — the onAnswer payload.
-      if (!state.run) return state;
-      const run = state.run;
-      const correct = Boolean(action.correct);
-
-      const combo = correct ? run.combo + 1 : 0;
-      // Lives (SYS-5): only boss runs have lives (3); a wrong answer in a boss
-      // run costs one. Non-boss runs have lives === null and are unaffected.
-      // Hitting 0 is the fail condition (see selectBossFailed); retryBoss
-      // restarts the run with a fresh 3 lives.
-      const lives =
-        !correct && run.isBoss ? Math.max(0, run.lives - 1) : run.lives;
-      // Base XP × difficulty (SYS-3) × combo multiplier (SYS-4). The multiplier
-      // uses the post-increment combo, so a longer streak rewards more; a wrong
-      // answer earns 0 regardless (xpForAnswer returns 0).
-      const xpGain = Math.round(
-        xpForAnswer({ correct, difficulty: action.difficulty }) *
-          comboMultiplier(combo)
+  return function gameReducer(state, action) {
+    // --- Flow/overlay events delegate to the INF-4 flow machine. ---
+    if (FLOW_EVENTS.has(action.type)) {
+      const flowSlice = flowReducer(
+        { flow: state.flow, overlay: state.overlay, zoneId: state.zoneId },
+        action
       );
-
-      const nextRun = {
-        ...run,
-        index: run.index + 1,
-        combo,
-        lives,
-        correct: run.correct + (correct ? 1 : 0),
-        total: run.total + 1,
-        xpThisRun: run.xpThisRun + xpGain,
-      };
-
-      // Review queue (SYS-8): a miss (re)queues the item; a correct answer to a
-      // queued item advances it toward clearing (needs 2 correct total).
-      const reviewQueue = applyAnswerToQueue(state.reviewQueue, {
-        id: action.challengeId,
-        correct,
-      });
-
-      return { ...state, run: nextRun, reviewQueue };
+      return { ...state, ...flowSlice };
     }
 
-    case GAME_ACTION.COMPLETE_RUN: {
-      // The onComplete payload; finalizes the run into persistent progress.
-      if (!state.run) return state;
-      const run = state.run;
-      const acc = computeAccuracy(run.correct, run.total);
-      const stars = starsForAccuracy(acc); // SYS-6: 0–3 by 70/85/95% thresholds
-
-      const zones = { ...state.zones };
-      const zone = zones[run.zoneId];
-      if (zone) {
-        zones[run.zoneId] = {
-          ...zone,
-          completed: true,
-          // Keep the player's best result on replays.
-          bestAccuracy: Math.max(zone.bestAccuracy, acc),
-          stars: Math.max(zone.stars, stars),
+    // --- Gameplay actions. ---
+    switch (action.type) {
+      case GAME_ACTION.START_RUN: {
+        // action: { zoneId, isBoss?, queue? }
+        return {
+          ...state,
+          run: {
+            zoneId: action.zoneId,
+            isBoss: Boolean(action.isBoss),
+            queue: action.queue ?? [],
+            index: 0,
+            // Boss runs have 3 lives; normal rounds are forgiving (null = none).
+            // SYS-5 hardens the lives rules.
+            lives: action.isBoss ? 3 : null,
+            combo: 0,
+            correct: 0,
+            total: 0,
+            xpThisRun: 0,
+          },
         };
       }
 
-      // Unlock the next zone in order (basic progression).
-      const idx = ZONE_IDS.indexOf(run.zoneId);
-      const nextId = ZONE_IDS[idx + 1];
-      if (nextId && zones[nextId]) {
-        zones[nextId] = { ...zones[nextId], unlocked: true };
+      case GAME_ACTION.ANSWER: {
+        // action: { correct, challengeId?, difficulty? } — the onAnswer payload.
+        if (!state.run) return state;
+        const run = state.run;
+        const correct = Boolean(action.correct);
+
+        const combo = correct ? run.combo + 1 : 0;
+        // Lives (SYS-5): only boss runs have lives (3); a wrong answer in a boss
+        // run costs one. Non-boss runs have lives === null and are unaffected.
+        // Hitting 0 is the fail condition (see selectBossFailed); retryBoss
+        // restarts the run with a fresh 3 lives.
+        const lives =
+          !correct && run.isBoss ? Math.max(0, run.lives - 1) : run.lives;
+        // Base XP × difficulty (SYS-3) × combo multiplier (SYS-4). The multiplier
+        // uses the post-increment combo, so a longer streak rewards more; a wrong
+        // answer earns 0 regardless (xpForAnswer returns 0).
+        const xpGain = Math.round(
+          xpForAnswer({ correct, difficulty: action.difficulty }) *
+            comboMultiplier(combo)
+        );
+
+        const nextRun = {
+          ...run,
+          index: run.index + 1,
+          combo,
+          lives,
+          correct: run.correct + (correct ? 1 : 0),
+          total: run.total + 1,
+          xpThisRun: run.xpThisRun + xpGain,
+        };
+
+        // Review queue (SYS-8): a miss (re)queues the item; a correct answer to a
+        // queued item advances it toward clearing (needs 2 correct total).
+        const reviewQueue = applyAnswerToQueue(state.reviewQueue, {
+          id: action.challengeId,
+          correct,
+        });
+
+        return { ...state, run: nextRun, reviewQueue };
       }
 
-      // Badges (SYS-7): award any whose predicate passes for this run and that
-      // the player doesn't already hold.
-      const newlyUnlocked = evaluateBadges(run).filter(
-        (id) => !state.badges.includes(id)
-      );
+      case GAME_ACTION.COMPLETE_RUN: {
+        // The onComplete payload; finalizes the run into persistent progress.
+        if (!state.run) return state;
+        const run = state.run;
+        const acc = computeAccuracy(run.correct, run.total);
+        const stars = starsForAccuracy(acc); // SYS-6: 0–3 by 70/85/95% thresholds
 
-      return {
-        ...state,
-        zones,
-        player: { ...state.player, xp: state.player.xp + run.xpThisRun },
-        badges: newlyUnlocked.length
-          ? [...state.badges, ...newlyUnlocked]
-          : state.badges,
-        run: null,
-      };
+        const zones = { ...state.zones };
+        const zone = zones[run.zoneId];
+        if (zone) {
+          zones[run.zoneId] = {
+            ...zone,
+            completed: true,
+            // Keep the player's best result on replays.
+            bestAccuracy: Math.max(zone.bestAccuracy, acc),
+            stars: Math.max(zone.stars, stars),
+          };
+        }
+
+        // Unlock the next zone in order (basic progression).
+        const idx = zoneIds.indexOf(run.zoneId);
+        const nextId = zoneIds[idx + 1];
+        if (nextId && zones[nextId]) {
+          zones[nextId] = { ...zones[nextId], unlocked: true };
+        }
+
+        // Badges (SYS-7): award any whose predicate passes for this run and that
+        // the player doesn't already hold. Definitions come from the content pack.
+        const newlyUnlocked = evaluateBadges(badges, run).filter(
+          (id) => !state.badges.includes(id)
+        );
+
+        return {
+          ...state,
+          zones,
+          player: { ...state.player, xp: state.player.xp + run.xpThisRun },
+          badges: newlyUnlocked.length
+            ? [...state.badges, ...newlyUnlocked]
+            : state.badges,
+          run: null,
+        };
+      }
+
+      case GAME_ACTION.ABANDON_RUN:
+        // Leave a run without recording progress (e.g. quit from pause).
+        return { ...state, run: null };
+
+      case GAME_ACTION.RESET:
+        // Full wipe to a brand-new game. The provider also clears the save.
+        return createInitialState(content);
+
+      case GAME_ACTION.SET_SETTING:
+        // action: { key, value } — e.g. { key: 'sound', value: false }
+        return {
+          ...state,
+          settings: { ...state.settings, [action.key]: action.value },
+        };
+
+      default:
+        if (import.meta.env?.DEV) {
+          console.warn(`[game] ignored unknown action "${action.type}"`);
+        }
+        return state;
     }
-
-    case GAME_ACTION.ABANDON_RUN:
-      // Leave a run without recording progress (e.g. quit from pause).
-      return { ...state, run: null };
-
-    case GAME_ACTION.RESET:
-      // Full wipe to a brand-new game. The provider also clears the save.
-      return createInitialState();
-
-    case GAME_ACTION.SET_SETTING:
-      // action: { key, value } — e.g. { key: 'sound', value: false }
-      return {
-        ...state,
-        settings: { ...state.settings, [action.key]: action.value },
-      };
-
-    default:
-      if (import.meta.env?.DEV) {
-        console.warn(`[game] ignored unknown action "${action.type}"`);
-      }
-      return state;
-  }
+  };
 }

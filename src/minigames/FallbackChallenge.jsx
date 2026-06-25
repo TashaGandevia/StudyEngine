@@ -15,7 +15,10 @@ export default function FallbackChallenge({ challenge, onAnswer, onComplete }) {
         <Button onClick={() => onAnswer?.(true, { challenge })}>
           Mark correct
         </Button>
-        <Button variant="secondary" onClick={() => onAnswer?.(false, { challenge })}>
+        <Button
+          variant="secondary"
+          onClick={() => onAnswer?.(false, { challenge })}
+        >
           Mark wrong
         </Button>
         <Button variant="ghost" onClick={() => onComplete?.()}>

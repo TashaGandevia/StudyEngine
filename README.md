@@ -3,7 +3,7 @@
 A content-agnostic, client-side engine for building **gamified study games**.
 
 It provides the entire learning loop — progression, scoring, retention,
-motivation, and persistence — while staying completely independent of *what* is
+motivation, and persistence — while staying completely independent of _what_ is
 being taught. Supply your own questions and interactions and you have a complete
 study game for any subject.
 

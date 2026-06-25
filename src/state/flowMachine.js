@@ -110,7 +110,7 @@ export function flowReducer(state, action) {
     default: {
       const next = TRANSITIONS[state.flow]?.[action.type];
       if (!next) {
-        if (import.meta.env.DEV) {
+        if (import.meta.env?.DEV) {
           console.warn(
             `[flow] ignored "${action.type}" — no transition from "${state.flow}"`
           );

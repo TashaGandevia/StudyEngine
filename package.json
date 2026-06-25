@@ -1,9 +1,9 @@
 {
-  "name": "full-stack-quest",
+  "name": "study-engine",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Full-Stack Quest — a React learning game that teaches full-stack web development (CMPT372 Study Helper).",
+  "description": "Study Engine — a content-agnostic, gamified study-game engine.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

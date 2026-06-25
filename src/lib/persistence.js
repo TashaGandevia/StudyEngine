@@ -9,7 +9,8 @@
 // access is guarded so the app degrades to in-memory-only state and can still
 // offer Export.
 
-const STORAGE_KEY = 'full-stack-quest:save';
+import { STORAGE_KEY, SAVE_FILENAME } from '../appConfig.js';
+
 // Bump when the durable shape changes incompatibly; old saves are then ignored
 // (a migration could be added here instead of discarding).
 // v2 (SYS-8): reviewQueue went from string[] to [{ id, remaining }].
@@ -105,7 +106,7 @@ export function downloadSave(state) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'full-stack-quest-save.json';
+  a.download = SAVE_FILENAME;
   document.body.appendChild(a);
   a.click();
   a.remove();
