@@ -24,6 +24,7 @@ import {
 } from './flowMachine.js';
 import { xpForAnswer } from '../lib/leveling.js';
 import { comboMultiplier } from '../lib/combo.js';
+import { accuracy as computeAccuracy, starsForAccuracy } from '../lib/scoring.js';
 
 // Gameplay action types (distinct from the flow EVENT names).
 export const GAME_ACTION = {
@@ -152,7 +153,8 @@ export function gameReducer(state, action) {
       // The onComplete payload; finalizes the run into persistent progress.
       if (!state.run) return state;
       const run = state.run;
-      const accuracy = run.total > 0 ? run.correct / run.total : 0;
+      const acc = computeAccuracy(run.correct, run.total);
+      const stars = starsForAccuracy(acc); // SYS-6: 0–3 by 70/85/95% thresholds
 
       const zones = { ...state.zones };
       const zone = zones[run.zoneId];
@@ -160,8 +162,9 @@ export function gameReducer(state, action) {
         zones[run.zoneId] = {
           ...zone,
           completed: true,
-          bestAccuracy: Math.max(zone.bestAccuracy, accuracy),
-          // TODO(SYS-6): compute stars from accuracy thresholds (70/85/95%).
+          // Keep the player's best result on replays.
+          bestAccuracy: Math.max(zone.bestAccuracy, acc),
+          stars: Math.max(zone.stars, stars),
         };
       }
 
