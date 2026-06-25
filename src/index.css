@@ -1,9 +1,50 @@
 /*
- * Global stylesheet. The three @tailwind directives inject Tailwind's
- * generated layers (reset, component classes, utility classes) at build time.
- * Keep app-wide base styles minimal here; component styling uses Tailwind
- * utility classes directly in JSX.
+ * Global stylesheet (INF-2).
+ *
+ * The @tailwind directives inject Tailwind's generated layers. Below them we
+ * define the semantic design tokens as CSS variables for both themes:
+ *   - :root        → light theme defaults
+ *   - .dark         → overrides applied when <html> has the `dark` class
+ *
+ * tailwind.config.js maps utility classes (bg-surface, text-muted, bg-accent,
+ * ...) onto these variables, so switching the `dark` class re-themes the whole
+ * app with no per-component work.
+ *
+ * --color-accent is intentionally a single token: per-zone screens can override
+ * it (e.g. style={{ '--color-accent': ... }}) so shared primitives like Button
+ * and ProgressBar pick up the current zone's identity color automatically.
  */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light theme */
+    --color-bg: #f8fafc; /* page background */
+    --color-surface: #ffffff; /* cards, panels */
+    --color-surface-muted: #f1f5f9; /* subtle fills, hover */
+    --color-border: #e2e8f0; /* hairlines, dividers */
+    --color-text: #0f172a; /* primary text */
+    --color-text-muted: #64748b; /* secondary text */
+    --color-accent: #2563eb; /* default accent = Zone 1 blue */
+    --color-accent-contrast: #ffffff; /* text/icon on accent fills */
+  }
+
+  .dark {
+    /* Dark theme */
+    --color-bg: #0f172a;
+    --color-surface: #1e293b;
+    --color-surface-muted: #334155;
+    --color-border: #334155;
+    --color-text: #f1f5f9;
+    --color-text-muted: #94a3b8;
+    --color-accent: #3b82f6;
+    --color-accent-contrast: #ffffff;
+  }
+
+  /* App-wide defaults so screens inherit theme background, text, and font. */
+  body {
+    @apply bg-bg text-text font-sans antialiased;
+  }
+}
