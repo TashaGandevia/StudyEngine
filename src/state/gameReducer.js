@@ -30,6 +30,7 @@ export const GAME_ACTION = {
   COMPLETE_RUN: 'COMPLETE_RUN',
   ABANDON_RUN: 'ABANDON_RUN',
   SET_SETTING: 'SET_SETTING',
+  RESET: 'RESET', // wipe all progress back to a brand-new game (SYS-2)
 };
 
 // The set of action types the flow machine handles; everything else is gameplay.
@@ -52,18 +53,24 @@ function makeInitialZones() {
   return zones;
 }
 
-export const initialGameState = {
-  ...initialFlowState, // flow, overlay, zoneId
-  // player.xp is the source of truth; level/xpIntoLevel are DERIVED via
-  // selectors (SYS-3 owns the leveling experience). Keeping one stored value
-  // avoids the two drifting out of sync.
-  player: { xp: 0 },
-  zones: makeInitialZones(),
-  run: null, // the active mini-game session, null when not playing
-  badges: [],
-  reviewQueue: [],
-  settings: { sound: true, reducedMotion: false },
-};
+// Factory (not a shared constant) so each call — initial mount and RESET —
+// produces fresh, independent objects with no aliasing between games.
+export function createInitialState() {
+  return {
+    ...initialFlowState, // flow, overlay, zoneId
+    // player.xp is the source of truth; level/xpIntoLevel are DERIVED via
+    // selectors (SYS-3 owns the leveling experience). Keeping one stored value
+    // avoids the two drifting out of sync.
+    player: { xp: 0 },
+    zones: makeInitialZones(),
+    run: null, // the active mini-game session, null when not playing
+    badges: [],
+    reviewQueue: [],
+    settings: { sound: true, reducedMotion: false },
+  };
+}
+
+export const initialGameState = createInitialState();
 
 export function gameReducer(state, action) {
   // --- Flow/overlay events delegate to the INF-4 flow machine. ---
@@ -165,6 +172,10 @@ export function gameReducer(state, action) {
     case GAME_ACTION.ABANDON_RUN:
       // Leave a run without recording progress (e.g. quit from pause).
       return { ...state, run: null };
+
+    case GAME_ACTION.RESET:
+      // Full wipe to a brand-new game. The provider also clears the save.
+      return createInitialState();
 
     case GAME_ACTION.SET_SETTING:
       // action: { key, value } — e.g. { key: 'sound', value: false }
