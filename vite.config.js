@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  base: '/StudyEngine/',
   // Vitest: the engine is pure JS, so the default Node environment is enough.
   // Test files live next to the code as *.test.js.
   test: {
