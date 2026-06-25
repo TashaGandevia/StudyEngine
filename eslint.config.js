@@ -38,6 +38,9 @@ export default [
       ...reactHooks.configs.recommended.rules,
       // The new JSX transform makes importing React in scope unnecessary.
       'react/react-in-jsx-scope': 'off',
+      // This is a plain-JS project (no PropTypes / TypeScript), so prop-type
+      // validation is intentionally not enforced.
+      'react/prop-types': 'off',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
