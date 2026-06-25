@@ -27,6 +27,7 @@ import { comboMultiplier } from '../lib/combo.js';
 import { accuracy as computeAccuracy, starsForAccuracy } from '../lib/scoring.js';
 import { evaluateBadges } from '../data/badges.js';
 import { applyAnswerToQueue } from '../lib/reviewQueue.js';
+import { ZONE_IDS } from '../data/zones.js';
 
 // Gameplay action types (distinct from the flow EVENT names).
 export const GAME_ACTION = {
@@ -41,9 +42,7 @@ export const GAME_ACTION = {
 // The set of action types the flow machine handles; everything else is gameplay.
 const FLOW_EVENTS = new Set(Object.values(EVENT));
 
-// Zone ids in unlock order. SYS-9 provides the full zone metadata (names,
-// concepts, badges); SYS-1 only needs the ids + order to seed progress.
-const ZONE_IDS = ['z1', 'z2', 'z3', 'z4', 'z5'];
+// Zone ids + unlock order come from the content data model (SYS-9).
 
 function makeInitialZones() {
   const zones = {};
